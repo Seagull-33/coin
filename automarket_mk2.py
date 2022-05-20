@@ -3,6 +3,7 @@ import time
 import datetime
 import math
 import requests
+import traceback
 
 acc_key = "2Mj1fs0MfzkL3xxODZ0slJZirmy7oQBOHqX5nxC1"
 sec_key = "AXqu4h9IFuLZIxqDCWuaXlRiQLA1xsWuyOUcuEln"
@@ -28,7 +29,7 @@ class autoTrade:
         slackBot.message("자동 매매 프로그램이 시작되었습니다.\n 시작 시간 : " + str(now) +
                          "\n매매 대상 :" + self.ticker +
                          "\n시작 자산 :" + str(self.start_cash))
-        openTime = datetime.datetime(now.year, now.month,now.day) + datetime.timedelta(days=1, hours=9, seconds=10)
+        openTime = datetime.datetime(now.year, now.month, now.day) + datetime.timedelta(days=1, hours=9, seconds=10)
 
         while True:
             try:
@@ -37,17 +38,25 @@ class autoTrade:
 
                 if openTime < now < openTime + datetime.timedelta(seconds=5):
                     openTime = datetime.datetime(now.year, now.month,now.day) + datetime.timedelta(days=1, hours=9, seconds=10)
+                    print("============매도중===========")
                     slackBot.message("매도 시도")
                     self.sell_coin() #매도 시도
                 self.get_today_data() #데이터 갱신
 
+                if (self.timer % 60 == 0):
+                    print(now, "\topenTime :", openTime, "\tTarget :", self.target_price, "\tCurrent :", current_price,
+                          "\tMA5 :", self.ma5, "\tBuy_yn :", self.buy_yn)
 
                 if((current_price > self.target_price) and self.bull and not self.buy_yn) : #매수 시도
+                    print("============매수중===========")
                     slackBot.message("매수 시도")
                     self.buy_coin()
+
             except:
                 slackBot.message("프로그램 오류 발생!!")
+                traceback.print_exc()
 
+            self.timer += 1
             time.sleep(1)
     def get_today_data(self):
         daily_data = pyupbit.get_ohlcv(self.ticker, count=41)
@@ -68,7 +77,8 @@ class autoTrade:
 
         self.target_price = today.targetPrice
         self.ma5 = today.ma5
-
+        print(daily_data.tail())
+        print("================[데이터 갱신 완료]===================")
     def buy_coin(self):
         self.buy_yn = True
         balance = upbit.get_balance() #잔고 조회
@@ -77,14 +87,16 @@ class autoTrade:
             upbit.buy_markey_order(self.ticker, balance * 0.9995)
 
             buy_price = pyupbit.get_orderbook("KRW-SOL")['orderbook_units'][0]['ask_price']
+            print("============매수중===========")
             slackBot.message("#매수 주문\매수 주문 가격 : " + str(buy_price) + "원")
     def sell_coin(self):
         self.buy_yn = False
-        balance = upbit.get_balance("KRW-BTC") #잔고 조회
+        balance = upbit.get_balance("KRW-SOL") #잔고 조회
 
         upbit.sell_market_order(ticker,balance)
 
         sell_price = pyupbit.get_orderbook("KRW-SOL")['orderbook_units'][0]['ask_price']
+        print("============매도중===========")
         slackBot.message("#매도 주문\매도 주문 가격 : " + str(sell_price) + "원")
 
 class slack:
